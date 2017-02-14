@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://D://workspace//idea//zeasyui/zeasyui.iml" filepath="D://workspace//idea//zeasyui/zeasyui.iml" />
+      <module fileurl="file://$PROJECT_DIR$/zeasyui.iml" filepath="$PROJECT_DIR$/zeasyui.iml" />
     </modules>
   </component>
 </project>
