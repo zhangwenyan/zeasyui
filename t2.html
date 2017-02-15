@@ -9,13 +9,38 @@
     <script src="jquery-easyui-1.4/locale/easyui-lang-zh_CN.js"></script>
     <link rel="stylesheet" href="jquery-easyui-1.4/themes/icon.css">
     <script>
+
+        $(function(){
+            $.fn.serializeJson = function () {
+                var serializeObj = {};
+                $(this.serializeArray()).each(function () {
+                    //if (this.value != "") {
+                    serializeObj[this.name] = this.value;
+                    //}
+                });
+                return serializeObj;
+            };
+        });
+
+        function onError(){
+            alert("出错了");
+        }
 function Dg(element,dlg,ps){
     if(!ps){
         ps = {};
     }
+    this.url = "dg.json";
+    this.action = "queryPage";
+    this.title_showAdd = "添加";
+    this.iconCls_showAdd = "icon-add";
+    this.title_showModify = "修改";
+    this.iconCls_showModify = "icon-edit";
     this.element = element || $("#dg");
+
     this.dlg = dlg;
     this.toolbar = ps.toolbar || this.element.find(".toolbar");
+    this.searchForm =ps.searchForm || this.element.find(".searchForm");
+
     this.fit = true;
     this.fitColumns = true;
     this.rownumbers = true;
@@ -30,19 +55,98 @@ function Dg(element,dlg,ps){
     this.border = false;
     this.nowrap = true;//如果设置为true,将在同一行显示数据,有利于性能
     var me = this;
-    this.onDblClickRow = function(rowIndex, rowData){//双击表格事件,默认为调用修改方法
-        if (me.dlg) {
-            me.element.datagrid("uncheckAll").datagrid("checkRow", rowIndex);
-            me.dlg.showModify.call(me.dlg);
-        }
-    }
     this.getSelections = function(){
         return this.element.datagrid("getSelections");
+    }
+    this.getRecord = function(){
+        var records = this.getSelections();
+        if (records.length == 0) {
+            $.messager.alert("提示", "请选择需要操作的数据", "info");
+            return false;
+        }
+        if (records.length > 1) {
+            $.messager.alert("提示", "只能选择一条数据", "info");
+            return false;
+        }
+        return records[0];
+    }
+    this.onDblClickRow = function(rowIndex, rowData){//双击表格事件,默认为调用修改方法
+        me.element.datagrid("uncheckAll").datagrid("checkRow", rowIndex);
+        me.showModify.call(me);
     }
 
     this.onLoadError = function(){
         $.messager.alert("错误", "载入列表出错,请刷新页面后重试", "info");
+    };
+    this.showAdd = function(){
+        if(!me.dlg.url){
+            me.dlg.url = this.url;
+        }
+
+        me.dlg.title = this.title_showAdd;
+        me.dlg.iconCls = this.iconCls_showAdd;
+        me.dlg.show();
+    };
+    this.showModify =function(){
+        if(!me.dlg.url){
+            me.dlg.url = this.url;
+        }
+
+        var record = this.getRecord();
+        if(!record){
+            return;
+        }
+        me.dlg.title = this.title_showModify;
+        me.dlg.iconCls = this.iconCls_showModify;
+        me.dlg.show();
+        me.dlg.loadForm(record);
+    };
+/*    this.showDel = function(){
+        alert("showDel");
+    };*/
+
+    this.showDelx = function(){
+        var records = this.getSelections();
+        if (records.length == 0) {
+            $.messager.alert("提示", "请选择需要删除的数据", "info");
+            return;
+        }
+        var me = this;
+        var msg = "确认要将这<strong style=color:red>" + records.length + "</strong>条数据删除吗?";
+        $.messager.confirm("确认删除", msg, function (r) {
+            if (r) {
+                var ids = "";
+                for(var i=0;i<records.length;i++){
+                    var record = records[i];
+                    if(ids!=""){
+                        ids+=",";
+                    }
+                    ids +=record.id;
+                }
+                var postParams = {
+                    ids:ids,
+                    action:"delx"
+                };
+                $.messager.progress();
+                $.post(me.url,postParams,function(result){
+                    if(result.success) {
+                        $.messager.show({
+                            title: "成功",
+                            msg: "删除成功"
+                        });
+
+                    }else{
+                        $.messager.alert("错误", result.msg, "error");
+                    }
+                    me.element.datagrid("reload");
+                },"json").complete(function(){
+                    $.messager.progress("close");
+                }).error(onError);
+            }
+        });
     }
+
+
     this.loadFilter = function(data){
         if (data.success === false) {
             $.messager.alert("载入列表出错", data.msg, "info");
@@ -60,12 +164,57 @@ function Dg(element,dlg,ps){
             }
         }
     }
+
+    this.getSearchFormJson = function(){
+        var queryParams = this.searchForm.serializeJson();
+        if (queryParams.endTime && queryParams.endTime.length < 15) {
+            var d = new Date(queryParams.endTime + " 00:00:00");
+            d.setDate(d.getDate() + 1);
+            queryParams.endTime = d.Format("yyyy-MM-dd HH:mm:ss");
+        }
+        return queryParams;
+    }
+    this.getQueryParams = function(){
+        var params = this.getSearchFormJson();
+        params.action = this.action;
+        return params;
+    }
+
+    this.query = function(){
+        this.element.datagrid("load", this.getQueryParams());
+    }
     this.init = function(ps){
         if(!ps){
             ps = {};
         }
 
-        var arr = ['toolbar','url','queryParams','onLoadError','loadFilter','fit','fitColumns','rownumbers','toolbar','pageSize','pagination','ctrlSelect',
+
+        var me = this;
+        this.toolbar.find(".btn_add").click(function(){
+            me.showAdd();
+        });
+        this.toolbar.find(".btn_modify").click(function(){
+            me.showModify();
+        });
+        this.toolbar.find(".btn_del").click(function(){
+            me.showDelx();
+        });
+        this.toolbar.find(".btn_reload").click(function(){
+            location.reload();
+        });
+        this.toolbar.find(".btn_query").click(function(){
+            me.query();
+        });
+
+        this.searchForm.submit(function(){
+            me.searchForm.find(".btn_query").focus().click();
+            return;
+        })
+
+
+
+
+        var arr = ['toolbar','url','onLoadError','loadFilter','fit','fitColumns','rownumbers','toolbar','pageSize','pagination','ctrlSelect',
         'singleSelect','onClickRow','onUnselect','onBeforeLoad','striped','border','nowrap','onDblClickRow',
             'columns','view','detailFormatter','onExpandRow','data'
         ];
@@ -75,34 +224,33 @@ function Dg(element,dlg,ps){
                 ps[ar] = this[ar];
             }
         }
+        ps.queryParams = this.getQueryParams();
         this.element.datagrid(ps);
 
 
     }
+
+
+
+
+
 }
 
-function Dlg(dg,element,ps){
-    this.dg = dg || window.dg;
-    if(!this.dg){
-        throw("请为该对象指定表格对象(dg)");
-    }
-    if(!this.dg.dlg){
-        this.dg.dlg = this;
-    }
+function Dlg(element,ps){
+    this.url = "";
+    this.action = "add";
     this.element =element||$("#dlg");
-    this.title_showAdd ="添加";//添加对话框标题
-    this.title_showModify = "修改";
+    this.title = "New Dialg";
+    this.iconCls = undefined;
     this.modal = true;//是否为模式对话框
     this.width = undefined;
     this.height = undefined;
     this.iconCls = undefined;
-    this.action = "add";
     this.columns = undefined;
     if(!ps){
         ps = {};
     }
     this.mainForm = ps.mainForm || this.element.find(".mainForm");
-
     if(!ps.noPadding){
         this.element[0].style.padding = "20px";
         this.element[0].style.paddingRight = "50px";
@@ -128,29 +276,45 @@ function Dlg(dg,element,ps){
     }
     this.close = function(){
         this.element.dialog("close");
+    };
+    this.getFormJson = function () {
+        return this.mainForm.serializeJson();
+    };
+    this.getSubmitData = function(){
+        var fj = this.getFormJson();
+        fj.action = this.action;
+        return fj;
     }
-
-    this.submit = function(){
-        alert("提交表单");
+    this.submit = function(callback){
+        var submitData = this.getSubmitData();
+        $.messager.progress();
+        $.post(this.url,submitData,function(result){
+            if(!result.success){
+                $.messager.alert("失败", result.msg, "info");
+                return;
+            }
+            $.messager.show({
+                title: "成功",
+                msg: "操作成功"
+            });
+            me.close();
+            if(callback){
+                callback.call(me);
+            }
+        },"json").complete(function(){
+            $.messager.progress("close");
+        }).error(onError);
     }
-
-    this.showAdd = function(ps){
-        if(!ps){
-            ps = {};
-        }
-        var arr = ['top','left','width','height','modal','resizable','buttons'];
+    this.show = function(callback){
+        var arr = ['top','left','width','height','modal','resizable','buttons','iconCls','title'];
+        var ps = {};
         for(var i=0;i<arr.length;i++){
             var ar = arr[i];
-            if(ps[ar] == undefined){
-                ps[ar] = this[ar];
-            }
+            ps[ar] = this[ar];
         }
-        ps.iconCls = ps.iconCls || "icon-add";
-        ps.title = ps.title || this.title_showAdd;
 
         this.resetDlg();
         this.element.dialog(ps);
-        this.action = "add";
         //默认将第一个输入框设置为焦点
         var ts = this.element.find(".textbox-text");
         if (ts.length > 0) {
@@ -158,57 +322,17 @@ function Dlg(dg,element,ps){
         }
         //让对话框每次出现在中间位置
         var me = this;
-        setTimeout(function(){
-            me.element.dialog("center");
-        });
         me.element.dialog("center");
     }
 
-    this.showModify = function(ps){
-        if (!ps) {
-            ps = {};
-        }
-        var record = this.getRecord();
-        if(!record){
-            return false;
-        }
-
-        var arr = ['top','left','width','height','modal','resizable','buttons'];
-        for(var i=0;i<arr.length;i++){
-            var ar = arr[i];
-            if(ps[ar] == undefined){
-                ps[ar] = this[ar];
-            }
-        }
-        ps.iconCls = ps.iconCls || "icon-edit";
-        ps.title = ps.title || this.title_showModify;
-
-        this.element.dialog(ps);
-        this.loadForm();
-        this.action = "modify";
-    }
-    this.loadForm = function(){
-        var record = this.getRecord();
+    this.loadForm = function(params){
         this.resetDlg();
-        if(record){
-            this.mainForm.form("load",record);
-        }
+        this.mainForm.form("load",params);
     }
     this.resetDlg = function(){
         this.mainForm.form("reset");
     }
-    this.getRecord = function(){
-        var records = this.dg.getSelections();
-        if (records.length == 0) {
-            $.messager.alert("提示", "请选择需要操作的数据", "info");
-            return false;
-        }
-        if (records.length > 1) {
-            $.messager.alert("提示", "只能选择一条数据", "info");
-            return false;
-        }
-        return records[0];
-    }
+
 }
 
     </script>
@@ -218,15 +342,16 @@ function Dlg(dg,element,ps){
             var dg = new Dg();
             dg.columns = [[ { field: "id", title: "ID", hidden: false, checkbox: true },
                 {field:'username',title:'用户名',width:100},
-                {field:'price',title:'密码',width:100,align:'right'}
+                {field:'password',title:'密码',width:100}
             ]];
-            dg.data = [
-                {username:'admin', password:"youotech"},
-                {username:'test', password:'123456'}
-            ]
             dg.init();
-            dlg1 = new Dlg(dg);
+            dlg1 = new Dlg();
+            dlg1.url = "modify.json";
             dlg1.iconCls = "icon-search";
+
+            dg.dlg = dlg1;
+
+
         })
     </script>
 
@@ -235,28 +360,27 @@ function Dlg(dg,element,ps){
 
 <body class="easyui-layout">
 <div data-options="region:'center',noheader:true">
-    <div id="dg">
-        <div class="toolbar" style="padding-top: 8px;padding-left:15px;display:none">
-            <div style="padding-bottom:5px">
-                <a class="easyui-linkbutton btn_add" href="javascript:;" iconCls="icon-add" plain="true">添加</a>
-                <span class="updateRecord">
-                    <a class="easyui-linkbutton btn_modify" href="javascript:;" iconCls="icon-edit" plain="true">修改</a>
-                    <a class="easyui-linkbutton btn_del" href="javascript:;" iconCls="icon-remove" plain="true">删除</a>
-                </span>
-                <a href="javascript:window.location.reload()" class="easyui-linkbutton" iconcls="icon-reload" plain="true">重载</a>
-            </div>
-            <div>
-                <form id="searchForm" action="javascript:;">
-                    <input type="submit" style="display:none" />
-                    名称:<input name="name" class="easyui-textbox" style="width:110px" />
-                    说明:<input name="comment" class="easyui-textbox" style="width:110px" />
-
-                    <a href="javascript:;" class="easyui-linkbutton submit" iconcls="icon-search" plain="true">查询</a>
-                </form>
-            </div>
+<div id="dg">
+    <div class="toolbar" style="padding-top: 8px;padding-left:15px;display:none">
+        <div style="padding-bottom:5px">
+            <a class="easyui-linkbutton btn_add" href="javascript:;" iconCls="icon-add" plain="true">添加</a>
+            <span class="updateRecord">
+                <a class="easyui-linkbutton btn_modify" href="javascript:;" iconCls="icon-edit" plain="true">修改</a>
+                <a class="easyui-linkbutton btn_del" href="javascript:;" iconCls="icon-remove" plain="true">删除</a>
+            </span>
+            <a class="easyui-linkbutton btn_reload" iconcls="icon-reload" plain="true">重载</a>
         </div>
-        <div/>
+        <div>
+            <form class="searchForm" action="javascript:;">
+                <input type="submit" style="display:none" />
+                名称:<input name="name" class="easyui-textbox" style="width:110px" />
+                说明:<input name="comment" class="easyui-textbox" style="width:110px" />
 
+                <a href="javascript:;" class="easyui-linkbutton btn_query" iconcls="icon-search" plain="true">查询</a>
+            </form>
+        </div>
+    </div>
+    <div/>
 </div>
 
 <!--对话框-->
@@ -269,29 +393,20 @@ function Dlg(dg,element,ps){
             <table>
                 <tr>
                     <td>
-                        名称:
+                        用户名:
                     </td>
                     <td>
-                        <input name="name" class="easyui-textbox" data-options="required:true,missingMessage:'不能为空'" style="width:220px" />
+                        <input name="username" class="easyui-textbox" data-options="required:true,missingMessage:'不能为空'" style="width:220px" />
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        值:
+                        密码:
                     </td>
                     <td>
-                        <input name="value" class="easyui-textbox" data-options="multiline:true,height:70" style="width:220px;" />
+                        <input name="username" type="password" class="easyui-textbox" data-options="required:true,missingMessage:'不能为空'" style="width:220px" />
                     </td>
                 </tr>
-                <tr>
-                    <td>
-                        说明:
-                    </td>
-                    <td>
-                        <input name="comment" class="easyui-textbox" style="width:220px;" />
-                    </td>
-                </tr>
-
             </table>
         </form>
     </div>

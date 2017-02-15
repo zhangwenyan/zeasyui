@@ -1,0 +1,12 @@
+{
+    "total":2,
+    "rows":[{
+        "id":1,
+        "username":"admin",
+        "password":"888888"
+    },{
+        "id":2,
+        "username":"test",
+        "password":"123456"
+    }]
+}
