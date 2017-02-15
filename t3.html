@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<script>
+
+
+    function Dlg(element){
+        this.element = element||$("#dlg");
+        this.mainForm =
+
+
+    }
+    (function () {
+        var arr = ["url","action","title","iconCls","modal","width","height"];
+        arr.forEach(function(ar){
+            Dlg.prototype[ar] = undefined;
+        });
+
+        function show(){
+            alert("show")
+        }
+
+        Dlg.prototype["show"] = show;
+
+
+    } ());
+
+    var dlg = new Dlg();
+    dlg.show();
+
+
+
+
+
+
+
+
+</script>
+
+</body>
+</html>
