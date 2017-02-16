@@ -93,7 +93,7 @@ function Dlg(element){
         fj.action = this.action;
         return fj;
     }
-    function submit(callback){
+    function submit(){
         var me = this;
         var submitData = this.getSubmitData();
         $.messager.progress();
@@ -107,10 +107,9 @@ function Dlg(element){
                 msg: "操作成功"
             });
             me.close();
-            if(callback){
-                callback.call(me);
+            if(me.submitCallback){
+                me.submitCallback.call(me);
             }
-
         },"json").complete(function(){
             $.messager.progress("close");
         }).error(onError);
@@ -142,6 +141,12 @@ function Dg(element){
     this.singleSelect = false;//是否单选
     this.striped = true;//斑马条
     this.border = false;
+    this.pageSize = 20;
+    var me = this;
+    this.onDblClickRow = function(rowIndex, rowData){//双击表格事件,默认为调用修改方法
+        me.element.datagrid("uncheckAll").datagrid("checkRow", rowIndex);
+        me.showModify.call(me);
+    }
     //  this.nowrap = true;//如果设置为true,将在同一行显示数据,有利于性能,默认为true
     this.columns = [[ { field: "id", title: "ID", hidden: false, checkbox: true },
         {field:'username',title:'用户名',width:100},
@@ -150,14 +155,14 @@ function Dg(element){
     //初始化方法
     this.toolbar = this.element.find(".toolbar");
     this.searchForm = this.element.find(".searchForm");
-
-    var me = this;
     this.toolbar.find(".btn_add").click(function(){
         me.showAdd();
     });
     this.toolbar.find(".btn_modify").click(function(){
         me.showModify();
     });
+
+
     this.toolbar.find(".btn_del").click(function(){
         me.showDel();
     });
@@ -222,6 +227,10 @@ function Dg(element){
         this.dlg.action = "add";
         this.dlg.resetForm();
         this.dlg.show();
+        var me = this;
+        this.dlg.submitCallback = function(){
+            me.query();
+        }
     }
     function showModify(){
         var record = this.getRecordByShowModify();
@@ -235,6 +244,10 @@ function Dg(element){
         this.dlg.iconCls = this.iconCls_showModify;
         this.dlg.action = "modify";
         this.dlg.show();
+        var me = this;
+        this.dlg.submitCallback = function(){
+            me.query();
+        }
     }
     function getRecordByShowModify(){
         var records = this.getSelections();
